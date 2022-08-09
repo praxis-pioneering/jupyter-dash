@@ -6,9 +6,7 @@ import time
 import sys
 import ipykernel
 from nbclient.util import just_run
-
-IPYKERNEL_MAJ_VERSION = int(ipykernel.__version__.split(".")[0])
-
+import ipython_blocking
 
 _jupyter_config = {}
 
@@ -53,56 +51,18 @@ def _request_jupyter_config(timeout=2):
 
     _send_jupyter_config_comm_request()
 
-    # Get shell and kernel
-    shell = IPython.get_ipython()
-    kernel = shell.kernel
-
-    # Start capturing shell events to replay later
-    captured_events = []
-
-    def capture_event(stream, ident, parent):
-        captured_events.append((stream, ident, parent))
-
-    kernel.shell_handlers['execute_request'] = capture_event
-
-    # increment execution count to avoid collision error
-    shell.execution_count += 1
-
     # Allow kernel to execute comms until we receive the jupyter configuration comm
     # response
     t0 = time.time()
-    while True:
-        if (time.time() - t0) > timeout:
-            # give up
-            raise EnvironmentError(
-                "Unable to communicate with the jupyter_dash notebook or JupyterLab \n"
-                "extension required to infer Jupyter configuration."
-            )
-        if _jupyter_comm_response_received():
-            break
-
-        if asyncio.iscoroutinefunction(kernel.do_one_iteration):
-            loop = asyncio.get_event_loop()
-            nest_asyncio.apply(loop)
-            loop.run_until_complete(kernel.do_one_iteration())
-        else:
-            kernel.do_one_iteration()
-
-    # Stop capturing events, revert the kernel shell handler to the default
-    # execute_request behavior
-    kernel.shell_handlers['execute_request'] = kernel.execute_request
-
-    # Replay captured events
-    # need to flush before replaying so messages show up in current cell not
-    # replay cells
-    sys.stdout.flush()
-    sys.stderr.flush()
-
-    for stream, ident, parent in captured_events:
-        # Using kernel.set_parent is the key to getting the output of the replayed
-        # events to show up in the cells that were captured instead of the current cell
-        kernel.set_parent(ident, parent)
-        if IPYKERNEL_MAJ_VERSION >= 6:
-            just_run(kernel.execute_request(stream, ident, parent))
-        else:
-            kernel.execute_request(stream, ident, parent)
+    ctx = ipython_blocking.CaptureExecution(replay=True)
+    with ctx:
+        while True:
+            if (time.time() - t0) > timeout:
+                # give up
+                raise EnvironmentError(
+                    "Unable to communicate with the jupyter_dash notebook or JupyterLab \n"
+                    "extension required to infer Jupyter configuration."
+                )
+            if _jupyter_comm_response_received():
+                break
+            ctx.step()

@@ -6,4 +6,4 @@ ipython
 ipykernel
 ansi2html
 nest-asyncio
-nbclient
+ipython_blocking
