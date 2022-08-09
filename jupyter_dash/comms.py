@@ -49,13 +49,12 @@ def _request_jupyter_config(timeout=2):
         # Not in jupyter setting
         return
 
-    _send_jupyter_config_comm_request()
-
     # Allow kernel to execute comms until we receive the jupyter configuration comm
     # response
     t0 = time.time()
     ctx = ipython_blocking.CaptureExecution(replay=True)
     with ctx:
+        _send_jupyter_config_comm_request()
         while True:
             if (time.time() - t0) > timeout:
                 # give up
