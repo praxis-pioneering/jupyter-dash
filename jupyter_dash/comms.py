@@ -4,6 +4,11 @@ from ipykernel.comm import Comm
 import nest_asyncio
 import time
 import sys
+import ipykernel
+from nbclient.util import just_run
+
+IPYKERNEL_MAJ_VERSION = int(ipykernel.__version__.split(".")[0])
+
 
 _jupyter_config = {}
 
@@ -97,4 +102,7 @@ def _request_jupyter_config(timeout=2):
         # Using kernel.set_parent is the key to getting the output of the replayed
         # events to show up in the cells that were captured instead of the current cell
         kernel.set_parent(ident, parent)
-        kernel.execute_request(stream, ident, parent)
+        if IPYKERNEL_MAJ_VERSION >= 6:
+            just_run(kernel.execute_request(stream, ident, parent))
+        else:
+            kernel.execute_request(stream, ident, parent)

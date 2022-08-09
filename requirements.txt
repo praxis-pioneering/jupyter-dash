@@ -6,3 +6,4 @@ ipython
 ipykernel
 ansi2html
 nest-asyncio
+nbclient
